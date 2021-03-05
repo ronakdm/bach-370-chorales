@@ -14,11 +14,14 @@ class KernParser:
         self.time_sigs = {"M3/4": (3, 4), "M4/4": (4, 4)}
         self.german_title_comment = "!!!OTL@@DE:"
 
-    def is_interpretation_record(line):
+    def is_interpretation_record(self, line):
         return line[0] == "*"
 
-    def is_comment_record(line):
+    def is_comment_record(self, line):
         return line[0] == "!"
+
+    def is_data_record(self, line):
+        return not (self.is_interpretation_record(line) or self.is_comment_record(line))
 
     def get_key_signature(self, lines):
         for line in lines:
@@ -28,7 +31,6 @@ class KernParser:
                         return key_sig
 
     def get_time_signature(self, lines):
-
         for line in lines:
             if self.is_interpretation_record(line):
                 for time_sig in self.time_sigs:
@@ -36,26 +38,31 @@ class KernParser:
                         return self.time_sigs[time_sig]
 
     def get_german_title(self, lines):
-
         for line in lines:
             if self.german_title_comment in line:
                 return line.replace(self.german_title_comment, "").strip()
 
 
-class BachChorale:
-    def __init__(self, file_path):
+class Note:
+    def __init__(self, note_str):
+        # TODO: parse these from string.
+        self.letter = None
+        self.octave = None
+        self.pitch = None
+        self.duration = None
 
-        self.parser = KernParser()
 
-        with open(file_path, "r") as f:
-            lines = f.readlines()
+class KernSpine:
+    def __init__(self):
+        self.notes = []
 
-            self.title = self.parser.get_german_title(lines)
-            self.key_signature = self.parser.get_key_signature(lines)
-            self.time_signature = self.parser.get_time_signature(lines)
+    def append(self, note):
+        self.notes.append(note)
 
     def to_numpy(self):
+        # TODO: Once note representation is decided.
         pass
 
-    def to_torch(self):
+    def to_tensor(self):
+        # TODO: Once note representation is decided.
         pass
