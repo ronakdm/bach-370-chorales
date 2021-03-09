@@ -58,23 +58,26 @@ class Note:
 
         self.pitch_map = {"c": 0, "d": 2, "e": 4, "f": 5, "g": 7, "a": 9, "b": 11}
 
-        if note_str != ".":
-            if note_str[0] == "[":
-                self.duration = 1 / int(note_str[1])
-                item = note_str[2:]
+        try:
+            # This note might start an annotated section. Ignore this.
+            if note_str[0] == "[" or note_str[0] == "(":
+                note_str = note_str[1:]
+
+            # Set duration in terms of number of bars.
+            if note_str[0] == "0":
+                # Double whole note.
+                self.duration = 2
             else:
                 self.duration = 1 / int(note_str[0])
-                item = note_str[1:]
-            self.midi_code = self.parse_pitch(item, lineno)
+            # Handle dotted notes.
+            if note_str[1] == ".":
+                self.duration *= 1.5
+                note_str = note_str[1:]
 
-    def set_attr(self, note_str, lineno, duration):
-        """
-        To be used when we encounter a ".". We initially set the note as empty.
-        Then, after the duration is resolved (at the end of a barline), we can set its attributes.
-        """
-        self.duration = duration
-        item = note_str[2:] if note_str[0] == "[" else note_str[1:]
-        self.midi_code = self.parse_pitch(item, lineno)
+            # Get pitch from rest of the note.
+            self.midi_code = self.parse_pitch(note_str[1:], lineno)
+        except Exception:
+            error("Unable to handle input '%s'" % note_str, lineno)
 
     def parse_pitch(self, item, lineno):
 
