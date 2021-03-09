@@ -1,7 +1,8 @@
-from bach_chorale import BachChorale
+from parser import Note
 
-for i in range(2):
-    file_path = f"kern/chor00{i+1}.krn"
-    c = BachChorale(file_path)
-    print(c.key_signature)
-    print(c.time_signature)
+filename = "kern/chor001.krn"
+
+notes = []
+for note_str in ["4GG", "4d", "[4g", "4b"]:
+    print(Note(note_str, 0).midi_code)
+

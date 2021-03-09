@@ -1,4 +1,14 @@
 import itertools
+import re
+
+
+class ParsingError(Exception):
+    def __init__(self, *args, **kwargs):
+        Exception.__init__(self, *args, **kwargs)
+
+
+def error(message, line):
+    raise ParsingError("[line {}] {}".format(line + 1, message))
 
 
 class KernParser:
@@ -44,12 +54,54 @@ class KernParser:
 
 
 class Note:
-    def __init__(self, note_str):
-        # TODO: parse these from string.
-        self.letter = None
-        self.octave = None
-        self.pitch = None
-        self.duration = None
+    def __init__(self, note_str, lineno):
+
+        self.pitch_map = {"c": 0, "d": 2, "e": 4, "f": 5, "g": 7, "a": 9, "b": 11}
+
+        if note_str != ".":
+            if note_str[0] == "[":
+                self.duration = 1 / int(note_str[1])
+                item = note_str[2:]
+            else:
+                self.duration = 1 / int(note_str[0])
+                item = note_str[1:]
+            self.midi_code = self.parse_pitch(item, lineno)
+
+    def set_attr(self, note_str, lineno, duration):
+        """
+        To be used when we encounter a ".". We initially set the note as empty.
+        Then, after the duration is resolved (at the end of a barline), we can set its attributes.
+        """
+        self.duration = duration
+        item = note_str[2:] if note_str[0] == "[" else note_str[1:]
+        self.midi_code = self.parse_pitch(item, lineno)
+
+    def parse_pitch(self, item, lineno):
+
+        if item[0] == "r":
+            return "rest"
+
+        note = re.search("([a-gA-G]+)", item)
+        if not note:
+            error("Unhandled non-note non-rest item: %s" % item, lineno)
+        note = note.group(1)
+
+        pitch = note[0].lower()
+        if pitch == note[0]:  # middle C or higher
+            octave = 3 + len(note)
+        else:  # below middle C
+            octave = 4 - len(note)
+
+        sharp = re.search(r"(\#+)", item)
+        flat = re.search(r"(\-+)", item)
+        if sharp and flat:
+            error("Note cannot be sharp and flat.", lineno)
+        sharp = len(sharp.group(1)) if sharp else 0
+        flat = len(flat.group(1)) if flat else 0
+
+        midi_code = 60 + 12 * (octave - 4) + self.pitch_map[pitch] + sharp - flat
+
+        return midi_code
 
 
 class KernSpine:
