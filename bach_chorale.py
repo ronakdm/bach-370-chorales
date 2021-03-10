@@ -1,13 +1,14 @@
 from parser import KernParser, KernSpine, Note
 import numpy as np
 import torch
+import re
 
 
 class BachChorale:
     def __init__(self, file_path):
 
         self.parser = KernParser()
-        self.file_path = file_path
+        self.number = int(re.search("([0-9]+)", file_path).group(1))
         self.len = 0
 
         with open(file_path, "r") as f:
@@ -21,10 +22,7 @@ class BachChorale:
     def get_data(self, lines):
         min_note = np.inf
         max_note = -np.inf
-        bass = KernSpine(self.time_signature)
-        tenor = KernSpine(self.time_signature)
-        alto = KernSpine(self.time_signature)
-        soprano = KernSpine(self.time_signature)
+        bass, tenor, alto, soprano = KernSpine(), KernSpine(), KernSpine(), KernSpine()
 
         for lineno, line in enumerate(lines):
             if self.parser.is_data_record(line):
@@ -50,14 +48,11 @@ class BachChorale:
 
         return soprano, alto, tenor, bass
 
-    def to_tensor(self, num_pitches, seq_len, offset=0):
+    def to_tensor(self, num_pitches, offset=0):
 
-        output = torch.zeros(4, num_pitches, seq_len, dtype=torch.int32)
+        output = torch.zeros(4, num_pitches, self.len + 1, dtype=torch.int32)
 
         for i, spine in enumerate([self.bass, self.tenor, self.alto, self.soprano]):
-            output[i] = spine.to_tensor(num_pitches, seq_len)
+            output[i] = spine.to_tensor(num_pitches, offset=offset)
 
         return output
-
-    def to_numpy(self, num_pitches, seq_len, offset=0):
-        return self.to_tensor(num_pitches, seq_len, offset=offset).numpy()

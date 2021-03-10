@@ -66,29 +66,26 @@ class Note:
         self.pitch_map = {"c": 0, "d": 2, "e": 4, "f": 5, "g": 7, "a": 9, "b": 11}
 
         try:
-            # This note might start an annotated section. Ignore this.
-            if note_str[0] == "[" or note_str[0] == "(":
-                note_str = note_str[1:]
 
             # Set duration in terms of number of bars.
-            if note_str[0] == "0":
-                # Double whole note.
+            note_len = int(re.search("([0-9]+)", note_str).group(1))
+            if note_len == 0:
                 self.duration = 2
             else:
-                self.duration = 1 / int(note_str[0])
+                self.duration = 1 / note_len
+
             # Handle dotted notes.
-            if note_str[1] == ".":
+            if "." in note_str:
                 self.duration *= 1.5
-                note_str = note_str[1:]
 
             # Get pitch from rest of the note.
-            self.midi_code = self.parse_pitch(note_str[1:], lineno)
+            self.midi_code = self.parse_pitch(note_str, lineno)
         except Exception:
             error("Unable to handle input '%s'" % note_str, lineno)
 
     def parse_pitch(self, item, lineno):
 
-        if item[0] == "r":
+        if re.search("r", item):
             return rest_code
 
         note = re.search("([a-gA-G]+)", item)
@@ -115,9 +112,8 @@ class Note:
 
 
 class KernSpine:
-    def __init__(self, time_sig, grid_size=16):
+    def __init__(self, grid_size=16):
         self.notes = []
-        self.time_sig = time_sig
         if grid_size in [1, 2, 4, 8, 16]:
             self.grid_size = grid_size
         else:
@@ -127,26 +123,22 @@ class KernSpine:
 
     def append(self, note):
         self.notes.append(note)
-        self.len += int(
-            note.duration * self.time_sig[0] / self.time_sig[1] * self.grid_size
-        )
+        self.len += int(note.duration * self.grid_size)
 
-    def to_tensor(self, num_pitches, seq_len, offset=0):
+    def to_tensor(self, num_pitches, offset=0):
 
-        output = torch.zeros(num_pitches, seq_len, dtype=torch.int32)
+        output = torch.zeros(num_pitches, self.len + 1, dtype=torch.int32)
 
         index = 0
         for note in self.notes:
-            num_steps = int(
-                note.duration * self.time_sig[0] / self.time_sig[1] * self.grid_size
-            )
+            num_steps = int(note.duration * self.grid_size)
             if note.midi_code != rest_code:
                 for t in range(num_steps):
                     output[offset + note.midi_code, index + t] = 1
             index += num_steps
 
-        return output
+        # End of sequence code = 0.
+        output[0, index] = 1
 
-    def to_numpy(self, num_pitches, seq_len, offset=0):
-        return self.to_tensor(self, num_pitches, seq_len, offset=offset).numpy()
+        return output
 
