@@ -1,5 +1,6 @@
 import itertools
 import re
+import torch
 
 
 class ParsingError(Exception):
@@ -11,6 +12,9 @@ def error(message, line):
     raise ParsingError("[line {}] {}".format(line + 1, message))
 
 
+rest_code = -10
+
+
 class KernParser:
     def __init__(self):
         sharps = ["f#", "c#", "g#", "d#", "a#", "e#", "b#"]
@@ -20,8 +24,8 @@ class KernParser:
             + list(itertools.accumulate(sharps))
             + list(itertools.accumulate(flats))
         )
-        # TODO: check if other time signatures besides 3/4 and 4/4 are present.
-        self.time_sigs = {"M3/4": (3, 4), "M4/4": (4, 4)}
+        self.rest_code = rest_code
+        self.time_sigs = {"M3/4": (3, 4), "M4/4": (4, 4), "M3/2": (3, 2)}
         self.german_title_comment = "!!!OTL@@DE:"
 
     def is_interpretation_record(self, line):
@@ -39,6 +43,7 @@ class KernParser:
                 for key_sig in self.key_sigs:
                     if "*k[" + key_sig + "]" in line:
                         return key_sig
+        return None
 
     def get_time_signature(self, lines):
         for line in lines:
@@ -46,11 +51,13 @@ class KernParser:
                 for time_sig in self.time_sigs:
                     if time_sig in line:
                         return self.time_sigs[time_sig]
+        return None
 
     def get_german_title(self, lines):
         for line in lines:
             if self.german_title_comment in line:
                 return line.replace(self.german_title_comment, "").strip()
+        return None
 
 
 class Note:
@@ -82,7 +89,7 @@ class Note:
     def parse_pitch(self, item, lineno):
 
         if item[0] == "r":
-            return "rest"
+            return rest_code
 
         note = re.search("([a-gA-G]+)", item)
         if not note:
@@ -108,16 +115,38 @@ class Note:
 
 
 class KernSpine:
-    def __init__(self):
+    def __init__(self, time_sig, grid_size=16):
         self.notes = []
+        self.time_sig = time_sig
+        if grid_size in [1, 2, 4, 8, 16]:
+            self.grid_size = grid_size
+        else:
+            raise ValueError("grid_size must be 1, 2, 4, 8, or 16!")
+
+        self.len = 0
 
     def append(self, note):
         self.notes.append(note)
+        self.len += int(
+            note.duration * self.time_sig[0] / self.time_sig[1] * self.grid_size
+        )
 
-    def to_numpy(self):
-        # TODO: Once note representation is decided.
-        pass
+    def to_tensor(self, num_pitches, seq_len, offset=0):
 
-    def to_tensor(self):
-        # TODO: Once note representation is decided.
-        pass
+        output = torch.zeros(num_pitches, seq_len, dtype=torch.int32)
+
+        index = 0
+        for note in self.notes:
+            num_steps = int(
+                note.duration * self.time_sig[0] / self.time_sig[1] * self.grid_size
+            )
+            if note.midi_code != rest_code:
+                for t in range(num_steps):
+                    output[offset + note.midi_code, index + t] = 1
+            index += num_steps
+
+        return output
+
+    def to_numpy(self, num_pitches, seq_len, offset=0):
+        return self.to_tensor(self, num_pitches, seq_len, offset=offset).numpy()
+
