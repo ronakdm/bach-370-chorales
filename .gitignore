@@ -25,6 +25,10 @@ _site
 all.krns
 
 # Python files.
+
+# Data files.
+chorales_tensor.p
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
