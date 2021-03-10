@@ -53,10 +53,10 @@ for i, chorale in enumerate(chorales):
         )
         index += chorale.len + 1
     except Exception as err:
-        print(chorale.bass.len)
-        print(chorale.tenor.len)
-        print(chorale.alto.len)
-        print(chorale.soprano.len)
+        print("Bass length:", chorale.bass.len)
+        print("Tenor length:", chorale.tenor.len)
+        print("Alto length:", chorale.alto.len)
+        print("Soprano length:", chorale.soprano.len)
         print(f"[Chorale {chorale.number}]")
         raise err
 
